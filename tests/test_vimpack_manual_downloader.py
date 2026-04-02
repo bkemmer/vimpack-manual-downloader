@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 # Dynamically import the script to avoid syntax issues with hyphens in the filename
-script_path = Path(__file__).parent / "vimpack-manual-downloader.py"
+script_path = Path(__file__).parent.parent / "vimpack-manual-downloader.py"
 spec = importlib.util.spec_from_file_location("vimpack_manual_downloader", script_path)
 downloader = importlib.util.module_from_spec(spec)
 sys.modules["vimpack_manual_downloader"] = downloader
@@ -127,7 +127,7 @@ def test_unzip_with_retry_bad_zip_retry(mock_zipfile, mock_sleep, tmp_path):
 
 def test_read_lockfile_smoke_test():
     # Verify the lockfile structure can be parsed successfully.
-    lockfile_path = Path(__file__).parent / "nvim-pack-lock.json"
+    lockfile_path = Path(__file__).parent.parent / "nvim-pack-lock.json"
     with lockfile_path.open("r", encoding="utf-8") as f:
         plugins_dict = json.load(f)
     assert "plugins" in plugins_dict
