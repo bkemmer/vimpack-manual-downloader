@@ -13,10 +13,6 @@ from re import Match
 DOWNLOAD_FOLDER = Path.home() / "Downloads"
 SECONDS_TO_CHECK_FOR_DOWNLOAD_FILES = 1
 
-if not DOWNLOAD_FOLDER.exists():
-    print(f"Expecting Downloads folder on: {DOWNLOAD_FOLDER}")
-    sys.exit(1)
-
 
 def is_version_at_least_0_12(version_str: str) -> bool:
     # Extract version like "0.12.0" from "NVIM v0.12.0"
@@ -26,21 +22,6 @@ def is_version_at_least_0_12(version_str: str) -> bool:
 
     major, minor = map(int, match.groups()[:2])
     return major > 0 or (major == 0 and minor >= 12)
-
-
-parser = argparse.ArgumentParser(
-    description="Download vim plugin packs from lock file."
-)
-parser.add_argument(
-    "lockfile",
-    nargs="?",
-    default="nvim-pack-lock.json",
-    help="Path to nvim-pack-lock JSON file",
-)
-
-args = parser.parse_args()
-
-json_lock_path: Path = Path(args.lockfile)
 
 
 def get_open_cmd() -> str:
@@ -54,10 +35,6 @@ def get_open_cmd() -> str:
         print("Expecting xdg-open or open to open links")
         sys.exit(1)
     return open_cmd
-
-
-with json_lock_path.open("r", encoding="utf-8") as f:
-    plugins_dict = json.load(f)
 
 
 def run_process(commands: list[str]) -> str:
@@ -96,54 +73,82 @@ def unzip_with_retry(
             time.sleep(sleep_seconds_if_bad_zip) if _ == 0 else None
 
 
-nvim_version_txt: str = run_process(["nvim", "--version"])
-if not is_version_at_least_0_12(nvim_version_txt):
-    print("Nvim should be at least above 0.12")
+def main() -> None:
+    if not DOWNLOAD_FOLDER.exists():
+        print(f"Expecting Downloads folder on: {DOWNLOAD_FOLDER}")
+        sys.exit(1)
 
-cmd = "lua print(vim.fn.stdpath('data'))"
-NVIM_DATA_PATH = Path(run_nvim_cmd(cmd))
-print(f"Found value of vim.fn.stdpath('data'): {NVIM_DATA_PATH}")
+    parser = argparse.ArgumentParser(
+        description="Download vim plugin packs from lock file."
+    )
+    parser.add_argument(
+        "lockfile",
+        nargs="?",
+        default="nvim-pack-lock.json",
+        help="Path to nvim-pack-lock JSON file",
+    )
 
-NVIM_PACK_PLUGINS_PATH: Path = NVIM_DATA_PATH / "site" / "pack" / "core" / "opt"
-print(f"VIM PACK PATH: {NVIM_PACK_PLUGINS_PATH}")
+    args = parser.parse_args()
 
-# it should exists but creates if not
-if not NVIM_PACK_PLUGINS_PATH.exists():
-    NVIM_PACK_PLUGINS_PATH.mkdir(parents=True)
+    json_lock_path: Path = Path(args.lockfile)
 
-open_cmd: str = get_open_cmd()
+    with json_lock_path.open("r", encoding="utf-8") as f:
+        plugins_dict = json.load(f)
 
-for plugin_name, plugin_spec in plugins_dict["plugins"].items():
-    print(f"\n### Plugin name: {plugin_name}")
-    src, rev = plugin_spec["src"], plugin_spec["rev"]
-    repo_name = src.split("/")[-1]
-    uri: str = create_URI(src, rev)
+    nvim_version_txt: str = run_process(["nvim", "--version"])
+    if not is_version_at_least_0_12(nvim_version_txt):
+        print("Nvim should be at least above 0.12")
 
-    destination_folder = NVIM_PACK_PLUGINS_PATH / repo_name
-    if destination_folder.exists():
-        ask_for_remove_path(
-            destination_folder,
-            prompt=f"\nFound the {plugin_name} already in nvim plugins path: {NVIM_PACK_PLUGINS_PATH}, should remove it? [Y/n]",
-        )
+    cmd = "lua print(vim.fn.stdpath('data'))"
+    NVIM_DATA_PATH = Path(run_nvim_cmd(cmd))
+    print(f"Found value of vim.fn.stdpath('data'): {NVIM_DATA_PATH}")
+
+    NVIM_PACK_PLUGINS_PATH: Path = NVIM_DATA_PATH / "site" / "pack" / "core" / "opt"
+    print(f"VIM PACK PATH: {NVIM_PACK_PLUGINS_PATH}")
+
+    # it should exists but creates if not
+    if not NVIM_PACK_PLUGINS_PATH.exists():
+        NVIM_PACK_PLUGINS_PATH.mkdir(parents=True)
+
+    open_cmd: str = get_open_cmd()
+
+    for plugin_name, plugin_spec in plugins_dict["plugins"].items():
+        print(f"\n### Plugin name: {plugin_name}")
+        src, rev = plugin_spec["src"], plugin_spec["rev"]
+        repo_name = src.split("/")[-1]
+        uri: str = create_URI(src, rev)
+
+        destination_folder = NVIM_PACK_PLUGINS_PATH / repo_name
         if destination_folder.exists():
-            continue  # if it still exists skip this plugin download
+            ask_for_remove_path(
+                destination_folder,
+                prompt=f"\nFound the {plugin_name} already in nvim plugins path: {NVIM_PACK_PLUGINS_PATH}, should remove it? [Y/n]",
+            )
+            if destination_folder.exists():
+                continue  # if it still exists skip this plugin download
 
-    filepath: Path = DOWNLOAD_FOLDER / f"{repo_name}-{rev}.zip"
-    if ask_for_remove_path(
-        filepath,
-        prompt=f"\nFound the {plugin_name} in {DOWNLOAD_FOLDER}, should remove it? [Y/n] ",
-    ):
-        res: str = run_process([open_cmd, uri])
-        print(
-            f"\nDownloading {plugin_name} waiting for it under {DOWNLOAD_FOLDER} with filename: {filepath}"
-        )
-    while True:
-        if filepath.is_file():
-            unzip_with_retry(filepath, NVIM_PACK_PLUGINS_PATH)
-            extracted_plugin_folder_path: Path = NVIM_PACK_PLUGINS_PATH / filepath.stem
-            if extracted_plugin_folder_path.exists():
-                shutil.move(
-                    extracted_plugin_folder_path, NVIM_PACK_PLUGINS_PATH / repo_name
+        filepath: Path = DOWNLOAD_FOLDER / f"{repo_name}-{rev}.zip"
+        if ask_for_remove_path(
+            filepath,
+            prompt=f"\nFound the {plugin_name} in {DOWNLOAD_FOLDER}, should remove it? [Y/n] ",
+        ):
+            run_process([open_cmd, uri])
+            print(
+                f"\nDownloading {plugin_name} waiting for it under {DOWNLOAD_FOLDER} with filename: {filepath}"
+            )
+        while True:
+            if filepath.is_file():
+                unzip_with_retry(filepath, NVIM_PACK_PLUGINS_PATH)
+                extracted_plugin_folder_path: Path = (
+                    NVIM_PACK_PLUGINS_PATH / filepath.stem
                 )
-            break
-        time.sleep(SECONDS_TO_CHECK_FOR_DOWNLOAD_FILES)
+                if extracted_plugin_folder_path.exists():
+                    shutil.move(
+                        extracted_plugin_folder_path, NVIM_PACK_PLUGINS_PATH / repo_name
+                    )
+                break
+            time.sleep(SECONDS_TO_CHECK_FOR_DOWNLOAD_FILES)
+
+
+if __name__ == "__main__":
+    main()
