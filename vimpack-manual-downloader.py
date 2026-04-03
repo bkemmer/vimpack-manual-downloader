@@ -15,7 +15,14 @@ SECONDS_TO_CHECK_FOR_DOWNLOAD_FILES = 1
 
 
 def is_version_at_least_0_12(version_str: str) -> bool:
-    # Extract version like "0.12.0" from "NVIM v0.12.0"
+    """Checks if the given Neovim version string is at least 0.12.
+    Args:
+        version_str (str): The Neovim version string (e.g., "NVIM v0.12.0").
+    Returns:
+        bool: True if the version is >= 0.12, False otherwise.
+    Raises:
+        ValueError: If the version format is invalid.
+    """
     match: Match[str] | None = re.search(r"(\d+)\.(\d+)(?:\.(\d+))?", version_str)
     if not match:
         raise ValueError(f"Invalid version format: {version_str}")
@@ -25,6 +32,11 @@ def is_version_at_least_0_12(version_str: str) -> bool:
 
 
 def get_open_cmd() -> str:
+    """Gets the OS-specific command to open a URL.
+    Checks for the availability of 'xdg-open' or 'open'. Exits if neither is found.
+    Returns:
+        str: The command used to open URLs ('xdg-open' or 'open').
+    """
     if shutil.which("xdg-open"):
         print("Using program `xdg-open` to open links")
         open_cmd = "xdg-open"
@@ -38,33 +50,69 @@ def get_open_cmd() -> str:
 
 
 def run_process(commands: list[str]) -> str:
+    """Runs a system command and returns its first line of output.
+    Args:
+        commands (list[str]): The command and its arguments as a list of strings.
+    Returns:
+        str: The first line of the command's stdout or stderr. Defaults to an empty string.
+    """
     result = subprocess.run(commands, capture_output=True, text=True)
     result_msg: str = result.stderr or result.stdout
     return result_msg.splitlines()[0] if len(result_msg) > 0 else ""
 
 
 def run_nvim_cmd(lua_command: str) -> str:
-    full_cmd: list[str] = ["nvim", "-c", lua_command, "--headless", "+q"]
+    """Runs a Lua command in headless Neovim and returns the output.
+    Args:
+        lua_command (str): The Lua command to run in Neovim.
+    Returns:
+        str: The first line of the output from the Neovim command.
+    """
+    full_cmd: list[str] = ["nvim", "-u", "NONE", "-c", lua_command, "--headless", "+q"]
     return run_process(full_cmd)
 
 
 def create_URI(src: str, rev: str) -> str:
+    """Generates the download URI for a GitHub repository archive.
+    Args:
+        src (str): The base URL of the repository.
+        rev (str): The commit hash, tag, or branch name.
+    Returns:
+        str: The generated URI for the zip archive.
+    """
     return f"{src}/archive/{rev}.zip"
 
 
 def ask_for_remove_path(path: Path, prompt: str) -> bool:
+    """Prompts the user to remove an existing file or directory.
+    If the path exists, asks the user whether to remove it. If the user
+    agrees, deletes the path.
+    Args:
+        path (Path): The file or directory path to check and potentially remove.
+        prompt (str): The prompt message to show to the user.
+    Returns:
+        bool: True if the path did not exist or was successfully removed.
+        False if the user chose to keep it.
+    """
     if path.exists():
         if input(prompt).strip().lower() in ("", "y", "yes"):
             (path.unlink() if path.is_file() else shutil.rmtree(path))
             print(f"Removed {path}")
         else:
-            return False  # False means should use the downloaded file
+            return False
     return True
 
 
 def unzip_with_retry(
     file_path: Path, output_dir: Path, sleep_seconds_if_bad_zip=2
 ) -> None:
+    """Extracts a zip file with a retry mechanism for bad zip errors.
+    Useful when a file might still be actively downloading.
+    Args:
+        file_path (Path): Path to the zip file.
+        output_dir (Path): Directory where contents should be extracted.
+        sleep_seconds_if_bad_zip (int, optional): Seconds to wait before retrying. Defaults to 2.
+    """
     for _ in range(2):
         try:
             zipfile.ZipFile(file_path).extractall(output_dir)
@@ -93,7 +141,7 @@ def main() -> None:
     json_lock_path: Path = Path(args.lockfile)
 
     with json_lock_path.open("r", encoding="utf-8") as f:
-        plugins_dict = json.load(f)
+        json_plugins = json.load(f)
 
     nvim_version_txt: str = run_process(["nvim", "--version"])
     if not is_version_at_least_0_12(nvim_version_txt):
@@ -112,7 +160,12 @@ def main() -> None:
 
     open_cmd: str = get_open_cmd()
 
-    for plugin_name, plugin_spec in plugins_dict["plugins"].items():
+    plugins_dict = json_plugins["plugins"]
+    if not isinstance(plugins_dict, dict):
+        print(f"Failure to parse lock-file: {json_lock_path}")
+        sys.exit(1)
+
+    for plugin_name, plugin_spec in plugins_dict:
         print(f"\n### Plugin name: {plugin_name}")
         src, rev = plugin_spec["src"], plugin_spec["rev"]
         repo_name = src.split("/")[-1]
