@@ -11,6 +11,7 @@ from pathlib import Path
 from re import Match
 
 DOWNLOAD_FOLDER = Path.home() / "Downloads"
+CACHE_FOLDER = Path.home() / ".cache" / "nvim" / "vimpack-manual-downloader"
 SECONDS_TO_CHECK_FOR_DOWNLOAD_FILES = 1
 
 
@@ -126,8 +127,17 @@ def main() -> None:
         print(f"Expecting Downloads folder on: {DOWNLOAD_FOLDER}")
         sys.exit(1)
 
+    if not CACHE_FOLDER.exists():
+        CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
+
     parser = argparse.ArgumentParser(
         description="Download vim plugin packs from lock file."
+    )
+    parser.add_argument(
+        "-u",
+        "--upgrade",
+        action="store_true",
+        help="Do not use the cache in CACHE_FOLDER",
     )
     parser.add_argument(
         "lockfile",
