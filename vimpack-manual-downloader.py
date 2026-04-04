@@ -165,7 +165,7 @@ def main() -> None:
         print(f"Failure to parse lock-file: {json_lock_path}")
         sys.exit(1)
 
-    for plugin_name, plugin_spec in plugins_dict:
+    for plugin_name, plugin_spec in plugins_dict.items():
         print(f"\n### Plugin name: {plugin_name}")
         src, rev = plugin_spec["src"], plugin_spec["rev"]
         repo_name = src.split("/")[-1]
