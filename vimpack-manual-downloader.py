@@ -168,6 +168,9 @@ def main() -> None:
     if not NVIM_PACK_PLUGINS_PATH.exists():
         NVIM_PACK_PLUGINS_PATH.mkdir(parents=True)
 
+    if not CACHE_FOLDER.exists():
+        CACHE_FOLDER.mkdir(parents=True)
+
     open_cmd: str = get_open_cmd()
 
     plugins_dict = json_plugins["plugins"]
@@ -191,7 +194,8 @@ def main() -> None:
                 continue  # if it still exists skip this plugin download
 
         filepath: Path = DOWNLOAD_FOLDER / f"{repo_name}-{rev}.zip"
-        if ask_for_remove_path(
+        cache_filepath: Path = CACHE_FOLDER / f"{repo_name}-{rev}.zip"
+        if not cache_filepath.exists() and ask_for_remove_path(
             filepath,
             prompt=f"\nFound the {plugin_name} in {DOWNLOAD_FOLDER}, should remove it? [Y/n] ",
         ):
@@ -199,9 +203,12 @@ def main() -> None:
             print(
                 f"\nDownloading {plugin_name} waiting for it under {DOWNLOAD_FOLDER} with filename: {filepath}"
             )
+
         while True:
             if filepath.is_file():
-                unzip_with_retry(filepath, NVIM_PACK_PLUGINS_PATH)
+                shutil.move(filepath, cache_filepath)
+            if cache_filepath.exists():
+                unzip_with_retry(cache_filepath, NVIM_PACK_PLUGINS_PATH)
                 extracted_plugin_folder_path: Path = (
                     NVIM_PACK_PLUGINS_PATH / filepath.stem
                 )
