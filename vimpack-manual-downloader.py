@@ -178,6 +178,25 @@ def main() -> None:
         print(f"Failure to parse lock-file: {json_lock_path}")
         sys.exit(1)
 
+    existing_plugins_count = sum(
+        1
+        for p in plugins_dict.values()
+        if (NVIM_PACK_PLUGINS_PATH / p["src"].split("/")[-1]).exists()
+    )
+
+    delete_all = False
+    if existing_plugins_count > 0:
+        ans = (
+            input(
+                f"\nFound {existing_plugins_count} existing plugin folder(s). "
+                "Do you want to replace (updating) them all or be asked for each one? [all/each] "
+            )
+            .strip()
+            .lower()
+        )
+        if ans in ("all", "a"):
+            delete_all = True
+
     for plugin_name, plugin_spec in plugins_dict.items():
         print(f"\n### Plugin name: {plugin_name}")
         src, rev = plugin_spec["src"], plugin_spec["rev"]
@@ -186,10 +205,18 @@ def main() -> None:
 
         destination_folder = NVIM_PACK_PLUGINS_PATH / repo_name
         if destination_folder.exists():
-            ask_for_remove_path(
-                destination_folder,
-                prompt=f"\nFound the {plugin_name} already in nvim plugins path: {NVIM_PACK_PLUGINS_PATH}, should remove it? [Y/n]",
-            )
+            if delete_all:
+                (
+                    destination_folder.unlink()
+                    if destination_folder.is_file()
+                    else shutil.rmtree(destination_folder)
+                )
+                print(f"Removed {destination_folder}")
+            else:
+                ask_for_remove_path(
+                    destination_folder,
+                    prompt=f"\nFound the {plugin_name} already in nvim plugins path: {NVIM_PACK_PLUGINS_PATH}, should remove it? [Y/n]",
+                )
             if destination_folder.exists():
                 continue  # if it still exists skip this plugin download
 
