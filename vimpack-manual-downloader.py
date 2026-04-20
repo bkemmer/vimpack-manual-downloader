@@ -189,11 +189,12 @@ def main() -> None:
         ans = (
             input(
                 f"\nFound {existing_plugins_count} existing plugin folder(s). "
-                "Do you want to replace (updating) them all or be asked for each one? [all/each] "
+                "Do you want to replace (updating) them all or be asked for each one? [[a]ll/each] default: each :",
             )
             .strip()
             .lower()
         )
+
         if ans in ("all", "a"):
             delete_all = True
 
@@ -243,6 +244,7 @@ def main() -> None:
                     shutil.move(
                         extracted_plugin_folder_path, NVIM_PACK_PLUGINS_PATH / repo_name
                     )
+                print(f"Extracted plugin to: { NVIM_PACK_PLUGINS_PATH / repo_name }")
                 break
             time.sleep(SECONDS_TO_CHECK_FOR_DOWNLOAD_FILES)
 
