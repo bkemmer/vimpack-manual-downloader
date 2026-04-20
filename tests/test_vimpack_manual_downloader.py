@@ -74,7 +74,7 @@ def test_run_nvim_cmd(mock_run):
     res = downloader.run_nvim_cmd("lua print('foo')")
     assert res == "/my/nvim/data"
     mock_run.assert_called_once_with(
-        ["nvim", "-c", "lua print('foo')", "--headless", "+q"],
+        ["nvim", "-u", "NONE", "-c", "lua print('foo')", "--headless", "+q"],
         capture_output=True,
         text=True,
     )
