@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tomllib
 import zipfile
 from pathlib import Path
 from re import Match
@@ -13,6 +14,9 @@ from re import Match
 DOWNLOAD_FOLDER = Path.home() / "Downloads"
 CACHE_FOLDER = Path.home() / ".cache" / "nvim" / "vimpack-manual-downloader"
 SECONDS_TO_CHECK_FOR_DOWNLOAD_FILES = 1
+GITHUB_URL = "https://github.com/"
+CONFIG_PATH = Path(__file__).parent / "config.toml"
+DEFAULT_LOCKFILE = "nvim-pack-lock.json"
 
 
 def is_version_at_least_0_12(version_str: str) -> bool:
@@ -73,14 +77,30 @@ def run_nvim_cmd(lua_command: str) -> str:
     return run_process(full_cmd)
 
 
-def create_URI(src: str, rev: str) -> str:
-    """Generates the download URI for a GitHub repository archive.
+def load_config(path: Path) -> dict:
+    """Reads the optional TOML config file.
+    Args:
+        path (Path): Path to the config file.
+    Returns:
+        dict: The parsed config, or an empty dict if the file does not exist.
+    """
+    if not path.is_file():
+        return {}
+    with path.open("rb") as f:  # tomllib requires binary mode
+        return tomllib.load(f)
+
+
+def create_URI(src: str, rev: str, git_url: str = "") -> str:
+    """Generates the download URI for a repository archive.
     Args:
         src (str): The base URL of the repository.
         rev (str): The commit hash, tag, or branch name.
+        git_url (str, optional): Base URL replacing the GitHub domain. Defaults to "".
     Returns:
         str: The generated URI for the zip archive.
     """
+    if git_url:
+        src = src.replace(GITHUB_URL, git_url.rstrip("/") + "/", 1)
     return f"{src}/archive/{rev}.zip"
 
 
@@ -140,15 +160,29 @@ def main() -> None:
         help="Do not use the cache in CACHE_FOLDER",
     )
     parser.add_argument(
+        "-c",
+        "--config",
+        default=CONFIG_PATH,
+        help=f"Path to TOML config file (default: {CONFIG_PATH})",
+    )
+    parser.add_argument(
         "lockfile",
         nargs="?",
-        default="nvim-pack-lock.json",
-        help="Path to nvim-pack-lock JSON file",
+        help=f"Path to nvim-pack-lock JSON file "
+        f"(default: LOCKFILE from the config file, else {DEFAULT_LOCKFILE})",
     )
 
     args = parser.parse_args()
 
-    json_lock_path: Path = Path(args.lockfile)
+    config = load_config(Path(args.config))
+    git_url: str = config.get("GIT_URL", "")
+    if git_url:
+        print(f"Using custom git URL: {git_url}")
+
+    json_lock_path: Path = Path(
+        args.lockfile or config.get("LOCKFILE", DEFAULT_LOCKFILE)
+    )
+    print(f"Using lock file: {json_lock_path}")
 
     with json_lock_path.open("r", encoding="utf-8") as f:
         json_plugins = json.load(f)
@@ -202,7 +236,7 @@ def main() -> None:
         print(f"\n### Plugin name: {plugin_name}")
         src, rev = plugin_spec["src"], plugin_spec["rev"]
         repo_name = src.split("/")[-1]
-        uri: str = create_URI(src, rev)
+        uri: str = create_URI(src, rev, git_url)
 
         destination_folder = NVIM_PACK_PLUGINS_PATH / repo_name
         if destination_folder.exists():
@@ -244,7 +278,7 @@ def main() -> None:
                     shutil.move(
                         extracted_plugin_folder_path, NVIM_PACK_PLUGINS_PATH / repo_name
                     )
-                print(f"Extracted plugin to: { NVIM_PACK_PLUGINS_PATH / repo_name }")
+                print(f"Extracted plugin to: {NVIM_PACK_PLUGINS_PATH / repo_name}")
                 break
             time.sleep(SECONDS_TO_CHECK_FOR_DOWNLOAD_FILES)
 

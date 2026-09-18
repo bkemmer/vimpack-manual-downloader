@@ -1,0 +1,8 @@
+# Copy to config.toml and edit. Both keys are optional;
+# an absent config.toml keeps the default GitHub behaviour.
+
+# Replaces the https://github.com/ prefix of each plugin src.
+# GIT_URL = "https://custom_domain.artifactory.com"
+
+# Default lockfile when none is given on the command line.
+# LOCKFILE = "nvim-pack-lock.json"
