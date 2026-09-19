@@ -1,0 +1,2 @@
+# tomllib requires 3.11; without this, ruff misclassifies it as a third-party import.
+target-version = "py311"

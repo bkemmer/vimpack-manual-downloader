@@ -207,3 +207,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Local config (may contain internal hostnames)
+config.toml

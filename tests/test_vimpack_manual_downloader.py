@@ -52,6 +52,37 @@ def test_create_URI():
     assert downloader.create_URI(src, rev) == expected
 
 
+def test_create_URI_with_git_url():
+    src = "https://github.com/bkemmer/finance_carol_v2"
+    expected = "https://custom_domain.artifactory.com/bkemmer/finance_carol_v2/archive/abc123.zip"
+    assert (
+        downloader.create_URI(src, "abc123", "https://custom_domain.artifactory.com")
+        == expected
+    )
+
+
+def test_create_URI_git_url_trailing_slash():
+    src = "https://github.com/bkemmer/finance_carol_v2"
+    assert downloader.create_URI(
+        src, "abc123", "https://custom_domain.artifactory.com/"
+    ) == downloader.create_URI(src, "abc123", "https://custom_domain.artifactory.com")
+
+
+def test_load_config_missing(tmp_path):
+    assert downloader.load_config(tmp_path / "missing.toml") == {}
+
+
+def test_load_config(tmp_path):
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        'GIT_URL = "https://custom_domain.artifactory.com"\nLOCKFILE = "other-lock.json"\n'
+    )
+    assert downloader.load_config(config_path) == {
+        "GIT_URL": "https://custom_domain.artifactory.com",
+        "LOCKFILE": "other-lock.json",
+    }
+
+
 @patch("vimpack_manual_downloader.subprocess.run")
 def test_run_process(mock_run):
     mock_result = MagicMock()
