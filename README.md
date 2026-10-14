@@ -10,7 +10,7 @@ A python script to manually download and extract Neovim plugins from an `nvim-pa
 
 ## Usage
 
-By default, the script looks for an `nvim-pack-lock.json` file in the current directory:
+By default, the script uses `nvim-pack-lock.json` in Neovim's `stdpath('config')` (e.g. `~/.config/nvim`, where Neovim writes it) if it exists, otherwise an `nvim-pack-lock.json` file in the current directory:
 
 ```bash
 python3 vimpack-manual-downloader.py

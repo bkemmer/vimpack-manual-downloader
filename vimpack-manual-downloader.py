@@ -90,6 +90,15 @@ def load_config(path: Path) -> dict:
         return tomllib.load(f)
 
 
+def default_lockfile() -> Path:
+    """Returns the lockfile in Neovim's stdpath('config') if it exists,
+    else DEFAULT_LOCKFILE in the cwd."""
+    nvim_lockfile = (
+        Path(run_nvim_cmd("lua print(vim.fn.stdpath('config'))")) / DEFAULT_LOCKFILE
+    )
+    return nvim_lockfile if nvim_lockfile.is_file() else Path(DEFAULT_LOCKFILE)
+
+
 def create_URI(src: str, rev: str, git_url: str = "") -> str:
     """Generates the download URI for a repository archive.
     Args:
@@ -169,7 +178,8 @@ def main() -> None:
         "lockfile",
         nargs="?",
         help=f"Path to nvim-pack-lock JSON file "
-        f"(default: LOCKFILE from the config file, else {DEFAULT_LOCKFILE})",
+        f"(default: LOCKFILE from the config file, else stdpath('config')/{DEFAULT_LOCKFILE} "
+        f"if it exists, else {DEFAULT_LOCKFILE})",
     )
 
     args = parser.parse_args()
@@ -180,7 +190,7 @@ def main() -> None:
         print(f"Using custom git URL: {git_url}")
 
     json_lock_path: Path = Path(
-        args.lockfile or config.get("LOCKFILE", DEFAULT_LOCKFILE)
+        args.lockfile or config.get("LOCKFILE") or default_lockfile()
     )
     print(f"Using lock file: {json_lock_path}")
 

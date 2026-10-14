@@ -165,3 +165,11 @@ def test_read_lockfile_smoke_test():
     assert "blink.cmp" in plugins_dict["plugins"]
     assert "src" in plugins_dict["plugins"]["blink.cmp"]
     assert "rev" in plugins_dict["plugins"]["blink.cmp"]
+
+
+def test_default_lockfile(tmp_path):
+    nvim_lock = tmp_path / "nvim-pack-lock.json"
+    with patch("vimpack_manual_downloader.run_nvim_cmd", return_value=str(tmp_path)):
+        assert downloader.default_lockfile() == Path("nvim-pack-lock.json")
+        nvim_lock.write_text("{}")
+        assert downloader.default_lockfile() == nvim_lock
