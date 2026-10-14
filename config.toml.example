@@ -5,4 +5,5 @@
 # GIT_URL = "https://custom_domain.artifactory.com"
 
 # Default lockfile when none is given on the command line.
+# Without it: stdpath('config')/nvim-pack-lock.json if it exists, else ./nvim-pack-lock.json.
 # LOCKFILE = "nvim-pack-lock.json"
